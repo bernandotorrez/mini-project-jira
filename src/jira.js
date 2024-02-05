@@ -25,6 +25,13 @@ app.post('/update-issue-jira', async (req, res) => {
   const prMergedBy = gitPayload.pull_request.assignee.login || '';
   const prUrl = gitPayload.pull_request.html_url || '';
 
+  const nullResult = {
+    result: {
+      success: [],
+      failed: [],
+    },
+  };
+
   if (action === 'closed' && merged) {
     const matches = prBody.match(/\b([A-Z]+-\d{3})\b/g);
     const matchedStrings = Array.from(new Set(matches || []));
@@ -37,52 +44,71 @@ app.post('/update-issue-jira', async (req, res) => {
       arrayOfId.push(matchedStrings);
     }
 
-    if (arrayOfId[0].length > 0) {
-      for (const row of arrayOfId[0]) {
-        try {
-          const urlJira = `${process.env.URL_API_JIRA_V2}/issue/${row}`;
-          const dataUpdate = { fields: { customfield_10074: { value: 'automated' } } };
-          const responseJira = await axios.put(urlJira, dataUpdate, {
-            auth: {
-              username: process.env.USERNAME_JIRA,
-              password: process.env.PASSWORD_JIRA,
-            },
-          });
+    if (matches) {
+      if (arrayOfId[0].length > 0) {
+        for (const row of arrayOfId[0]) {
+          try {
+            const urlJira = `${process.env.URL_API_JIRA_V2}/issue/${row}`;
+            const dataUpdate = { fields: { customfield_10074: { value: 'automated' } } };
+            const responseJira = await axios.put(urlJira, dataUpdate, {
+              auth: {
+                username: process.env.USERNAME_JIRA,
+                password: process.env.PASSWORD_JIRA,
+              },
+            });
 
-          const { status } = responseJira;
+            if (responseJira.status === 204) {
+              // NOTE: Add Comment to Issue
+              const urlJiraAddComment = `${process.env.URL_API_JIRA_V2}/issue/${row}/comment`;
+              const dataAddComment = {
+                body: 'Automation Coverage Updated to "automated" from Webhooks '
+                + `with PR Number : ${prNumber}`,
+              };
+              const responseCommentJira = await axios.post(urlJiraAddComment, dataAddComment, {
+                auth: {
+                  username: process.env.USERNAME_JIRA,
+                  password: process.env.PASSWORD_JIRA,
+                },
+              });
 
-          if (status === 204) {
-            success.push(row);
-          } else {
+              if (responseCommentJira.status === 201) {
+                success.push(row);
+              }
+            } else {
+              failed.push(row);
+            }
+          } catch (error) {
             failed.push(row);
           }
-        } catch (error) {
-          failed.push(row);
         }
+
+        const resultData = {
+          success,
+          failed,
+        };
+
+        const prData = {
+          prNumber,
+          prMergedAt,
+          prMergedBy,
+          prUrl,
+        };
+
+        sendNotification(prData, resultData);
+
+        const result = {
+          result: resultData,
+        };
+
+        res.status(200).json(result);
+      } else {
+        res.status(200).json(nullResult);
       }
+    } else {
+      res.status(200).json(nullResult);
     }
-
-    const resultData = {
-      success,
-      failed,
-    };
-
-    const prData = {
-      prNumber,
-      prMergedAt,
-      prMergedBy,
-      prUrl,
-    };
-
-    sendNotification(prData, resultData);
-
-    const result = {
-      result: resultData,
-    };
-
-    res.status(200).json(result);
   } else {
-    res.status(200).json({ message: 'Nothing to do because PR is not closed and not merged' });
+    res.status(200).json(nullResult);
   }
 });
 
