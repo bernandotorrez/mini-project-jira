@@ -82,7 +82,7 @@ app.post('/update-issue-jira', async (req, res) => {
 
     res.status(200).json(result);
   } else {
-    res.status(400).json({ message: 'Invalid payload or action' });
+    res.status(200).json({ message: 'Nothing to do because PR is not closed and not meerged' });
   }
 });
 
