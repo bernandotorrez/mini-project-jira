@@ -40,9 +40,7 @@ app.post('/update-issue-jira', async (req, res) => {
     const success = [];
     const failed = [];
 
-    if (matchedStrings.length > 0) {
-      arrayOfId.push(matchedStrings);
-    }
+    if (matchedStrings.length > 0) arrayOfId.push(matchedStrings);
 
     if (matches) {
       if (arrayOfId[0].length > 0) {
