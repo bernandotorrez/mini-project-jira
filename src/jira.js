@@ -3,8 +3,8 @@
 /* eslint-disable no-await-in-loop */
 const express = require('express');
 const bodyParser = require('body-parser');
-const axios = require('axios');
 const dotenv = require('dotenv');
+const endpoints = require('./endpoints/jira.endpoint');
 const { sendNotification } = require('./helpers/utils');
 
 const app = express();
@@ -48,27 +48,21 @@ app.post('/update-issue-jira', async (req, res) => {
       if (arrayOfId[0].length > 0) {
         for (const row of arrayOfId[0]) {
           try {
-            const urlJira = `${process.env.URL_API_JIRA_V2}/issue/${row}`;
             const dataUpdate = { fields: { customfield_10074: { value: 'automated' } } };
-            const responseJira = await axios.put(urlJira, dataUpdate, {
-              auth: {
-                username: process.env.USERNAME_JIRA,
-                password: process.env.PASSWORD_JIRA,
-              },
+            const responseJira = await endpoints.updateIssue({
+              issueId: row,
+              data: dataUpdate,
             });
 
             if (responseJira.status === 204) {
               // NOTE: Add Comment to Issue
-              const urlJiraAddComment = `${process.env.URL_API_JIRA_V2}/issue/${row}/comment`;
               const dataAddComment = {
                 body: 'Automation Coverage Updated to "automated" from Webhooks '
                 + `with PR Number : ${prNumber}`,
               };
-              const responseCommentJira = await axios.post(urlJiraAddComment, dataAddComment, {
-                auth: {
-                  username: process.env.USERNAME_JIRA,
-                  password: process.env.PASSWORD_JIRA,
-                },
+              const responseCommentJira = await endpoints.addComment({
+                issueId: row,
+                data: dataAddComment,
               });
 
               if (responseCommentJira.status === 201) {
