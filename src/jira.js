@@ -46,21 +46,15 @@ app.post('/update-issue-jira', async (req, res) => {
       if (arrayOfId[0].length > 0) {
         for (const row of arrayOfId[0]) {
           try {
-            const dataUpdate = { fields: { customfield_10074: { value: 'automated' } } };
             const responseJira = await endpoints.updateIssue({
               issueId: row,
-              data: dataUpdate,
             });
 
             if (responseJira.status === 204) {
               // NOTE: Add Comment to Issue
-              const dataAddComment = {
-                body: 'Automation Coverage Updated to "automated" from Webhooks '
-                + `with PR Number : ${prNumber}`,
-              };
               const responseCommentJira = await endpoints.addComment({
                 issueId: row,
-                data: dataAddComment,
+                prNumber,
               });
 
               if (responseCommentJira.status === 201) {
